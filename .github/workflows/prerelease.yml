@@ -32,8 +32,20 @@ jobs:
 
       - name: Update module version
         run: |
+          set -e
+
           SHORT_SHA="${GITHUB_SHA::7}"
           BUILD_DATE="$(TZ=Asia/Shanghai date +%Y%m%d)"
+
+          if ! grep -q '^version=' module.prop; then
+            echo "Error: version field not found in module.prop"
+            exit 1
+          fi
+
+          if ! grep -q '^versionCode=' module.prop; then
+            echo "Error: versionCode field not found in module.prop"
+            exit 1
+          fi
 
           sed -i "s/^version=.*/version=${SHORT_SHA}/" module.prop
           sed -i "s/^versionCode=.*/versionCode=${BUILD_DATE}/" module.prop
@@ -41,25 +53,53 @@ jobs:
           echo "Module version: ${SHORT_SHA}"
           echo "Module versionCode: ${BUILD_DATE}"
 
+          cat module.prop
+
       - name: Run build.sh
-        run: sh build.sh
+        run: |
+          sh build.sh
 
       - name: Rename build artifact
+        shell: bash
         run: |
+          set -e
+
           SHORT_SHA="${GITHUB_SHA::7}"
+          TARGET="box4_${SHORT_SHA}.zip"
           FOUND=0
 
-          for file in box4_v*.zip; do
+          echo "Searching build ZIP files..."
+
+          for file in *.zip; do
             [ -f "$file" ] || continue
-            mv "$file" "box4_${SHORT_SHA}.zip"
+
+            if [ "$file" = "$TARGET" ]; then
+              echo "Target ZIP already exists: $TARGET"
+              FOUND=1
+              break
+            fi
+
+            if [ "$FOUND" -eq 1 ]; then
+              echo "Error: Multiple ZIP files found"
+              exit 1
+            fi
+
+            SOURCE="$file"
             FOUND=1
-            break
           done
 
           if [ "$FOUND" -ne 1 ]; then
-            echo "Error: build ZIP not found"
+            echo "Error: Build ZIP not found"
+            ls -lah
             exit 1
           fi
+
+          if [ -n "${SOURCE:-}" ]; then
+            mv "$SOURCE" "$TARGET"
+          fi
+
+          echo "Build artifact: $TARGET"
+          ls -lh "$TARGET"
 
       - name: Delete current prerelease assets
         uses: andreaswilli/delete-release-assets-action@v3.0.0

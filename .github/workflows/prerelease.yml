@@ -1,3 +1,4 @@
+
 name: prerelease
 
 on:
@@ -32,17 +33,13 @@ jobs:
       - name: Update module version
         run: |
           SHORT_SHA="${GITHUB_SHA::7}"
-          VERSION="$(sed -n 's/^version=//p' module.prop | head -n 1)"
+          BUILD_DATE="$(TZ=Asia/Shanghai date +%Y%m%d)"
 
-          if [ -z "$VERSION" ]; then
-            echo "Error: version field not found in module.prop"
-            exit 1
-          fi
+          sed -i "s/^version=.*/version=${SHORT_SHA}/" module.prop
+          sed -i "s/^versionCode=.*/versionCode=${BUILD_DATE}/" module.prop
 
-          sed -i "s/^version=.*/version=${VERSION}_${SHORT_SHA}/" module.prop
-
-          echo "Module version: ${VERSION}-${SHORT_SHA}"
-          echo "Build filename: box4_${SHORT_SHA}.zip"
+          echo "Module version: ${SHORT_SHA}"
+          echo "Module versionCode: ${BUILD_DATE}"
 
       - name: Run build.sh
         run: sh build.sh
